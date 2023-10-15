@@ -43,8 +43,7 @@ public class OrderServiceImpl implements OrderService {
                 .retrieve()
                 .bodyToMono(InventoryResponse[].class)
                 .block();
-        if (inventoryResponses != null && Boolean.TRUE.equals(allProductsInStock)) {
-            Boolean allProductsInStock = Arrays.stream(inventoryResponses).allMatch(InventoryResponse::isInStock);
+        if (inventoryResponses != null && Arrays.stream(inventoryResponses).allMatch(InventoryResponse::isInStock)) {
             orderRepository.save(order);
         } else {
             throw new IllegalArgumentException("Inventory is not in stock");
