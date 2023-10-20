@@ -7,6 +7,8 @@ import com.alphacrash.order.model.Order;
 import com.alphacrash.order.model.OrderLineItems;
 import com.alphacrash.order.repository.OrderRepository;
 import com.alphacrash.order.service.OrderService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -26,7 +28,8 @@ public class OrderServiceImpl implements OrderService {
     private WebClient.Builder webClientBuilder;
 
     @Override
-    public void placeOrder(OrderRequest orderRequest) {
+    @CircuitBreaker(name = "inventory", fallbackMethod = "placeOrderFallback")
+    public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order();
         List<OrderLineItems> orderLineItemsList = orderRequest.getOrderLineItemsDtoList()
                 .stream()
@@ -45,6 +48,7 @@ public class OrderServiceImpl implements OrderService {
                 .block();
         if (inventoryResponses != null && Arrays.stream(inventoryResponses).allMatch(InventoryResponse::isInStock)) {
             orderRepository.save(order);
+            return "Order placed successfully";
         } else {
             throw new IllegalArgumentException("Inventory is not in stock");
         }
@@ -55,5 +59,9 @@ public class OrderServiceImpl implements OrderService {
         orderLineItems.setSkuCode(orderLineItemsDto.getSkuCode());
         orderLineItems.setQuantity(orderLineItemsDto.getQuantity());
         return orderLineItems;
+    }
+
+    public String placeOrderFallback(OrderRequest orderRequest, Exception e) {
+        return "Order Service is down. Please try again later.";
     }
 }
